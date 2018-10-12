@@ -8,20 +8,20 @@ import se.zeroplusx.musicapi.dto.*;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 @Component
 public class MusicBrainsClient {
 
     private static final String MUSIC_BRAINS = "http://musicbrainz.org/ws/2";
     private static final String COVER_ART = "http://coverartarchive.org/release-group/";
+    private final RestTemplate restTemplate = new RestTemplate();
 
     @Async
-    private static void getDescriptionAndName(String url, ArtistInfo artistInfo) {
+    private  void getDescriptionAndName(String url, ArtistInfo artistInfo) {
         try {
             String[] split = url.split("/");
             String id = split[split.length - 1];
-
-            RestTemplate restTemplate = new RestTemplate();
             String discogsApiUrl = "https://api.discogs.com/artists/" + id;
             ArtistData artistData = restTemplate.getForEntity(discogsApiUrl, ArtistData.class).getBody();
             artistInfo.setArtistData(artistData);
@@ -32,9 +32,8 @@ public class MusicBrainsClient {
 
     //   http://coverartarchive.org/release-group/f32fab67-77dd-3937-addc-9062e2 8e4c37
     @Async
-    private static String getAlbumArt(String albumId) {
+    private String getAlbumArt(String albumId) {
         try {
-            RestTemplate restTemplate = new RestTemplate();
             String url = COVER_ART + albumId;
             LinkedHashMap map = restTemplate.getForObject(url, LinkedHashMap.class);
 
@@ -45,16 +44,16 @@ public class MusicBrainsClient {
     }
 
     //   http://musicbrainz.org/ws/2/artist/f27ec8db-af05-4f36-916e-3d57f91ecf5e?&fmt=json&inc=url-rels+release-groups
-    public ArtistInfo getArtistInfo(String artistMbid) {
+    public Result getArtistInfo(String artistMbid) {
         try {
             String url = MUSIC_BRAINS + "/artist/" + artistMbid + "?fmt=json&inc=url-rels+release-groups";
-            RestTemplate template = new RestTemplate();
 
-            ArtistInfo artistInfo = template.getForEntity(url, ArtistInfo.class).getBody();
+            ArtistInfo artistInfo = restTemplate.getForEntity(url, ArtistInfo.class).getBody();
 
             assert artistInfo != null;
             artistInfo.setMbid(artistMbid);
-            getAlbumInfo(artistInfo);
+            CompletableFuture<List<AlbumInfo>> albumInfo = getAlbumInfo(artistInfo);
+            artistInfo.setAlbums(albumInfo.join());
             if (artistInfo.getRelations() != null) {
                 List<Relation> relations = artistInfo.getRelations();
                 final int relationsCount = relations.size();
@@ -70,30 +69,41 @@ public class MusicBrainsClient {
                     }
                 }
             }
-            return artistInfo;
+            Result result = new Result();
+            result.setAlbums(artistInfo.getAlbums());
+            result.setMbid(artistMbid);
+            if (artistInfo.getArtistData() != null) {
+                result.setDescription(artistInfo.getArtistData().getProfile());
+                result.setName(artistInfo.getArtistData().getRealname());
+            }
+
+            return result;
         } catch (Exception e) {
             throw new RuntimeException();
         }
     }
 
     @Async
-    private void getAlbumInfo(ArtistInfo artistInfo) {
-        List<ReleaseGroup> releases = artistInfo.getReleaseGroups();
-        if (releases != null) {
+    private CompletableFuture<List<AlbumInfo>> getAlbumInfo(ArtistInfo artistInfo) {
+        return CompletableFuture.supplyAsync(() -> {
             List<AlbumInfo> albumInfos = new ArrayList<>();
-            releases.forEach(release->{
-                AlbumInfo info = new AlbumInfo();
-                String type = release.getPrimaryType();
-                if ("Album".equals(type)) {
-                    String id = release.getId();
-                    info.setId(id);
-                    info.setTitle(release.getTitle());
-                    info.setImage(getAlbumArt(id));
-                    albumInfos.add(info);
-                }
-            });
-            artistInfo.setAlbums(albumInfos);
-        }
+            List<ReleaseGroup> releases = artistInfo.getReleaseGroups();
+            if (releases != null) {
+                releases.forEach(release -> {
+                    AlbumInfo info = new AlbumInfo();
+                    String type = release.getPrimaryType();
+                    if ("Album".equals(type)) {
+                        String id = release.getId();
+                        info.setId(id);
+                        info.setTitle(release.getTitle());
+                        info.setImage(getAlbumArt(id));
+                        albumInfos.add(info);
+                    }
+                });
+            }
+            return albumInfos;
+        });
+
     }
 
 }
