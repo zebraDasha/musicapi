@@ -15,7 +15,7 @@ public class AsyncConfig implements AsyncConfigurer {
     @Bean
     @Override
     public Executor getAsyncExecutor() {
-        return Executors.newCachedThreadPool();
+        return Executors.newWorkStealingPool();
     }
 
     @Override
