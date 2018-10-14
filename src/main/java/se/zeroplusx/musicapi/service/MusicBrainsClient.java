@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 @Component
 public class MusicBrainsClient {
@@ -17,8 +18,9 @@ public class MusicBrainsClient {
     private static final String COVER_ART = "http://coverartarchive.org/release-group/";
     private final RestTemplate restTemplate = new RestTemplate();
 
+
     @Async
-    private  void getDescriptionAndName(String url, ArtistInfo artistInfo) {
+    private void getDescriptionAndName(String url, ArtistInfo artistInfo) {
         try {
             String[] split = url.split("/");
             String id = split[split.length - 1];
@@ -32,15 +34,17 @@ public class MusicBrainsClient {
 
     //   http://coverartarchive.org/release-group/f32fab67-77dd-3937-addc-9062e2 8e4c37
     @Async
-    private String getAlbumArt(String albumId) {
-        try {
-            String url = COVER_ART + albumId;
-            LinkedHashMap map = restTemplate.getForObject(url, LinkedHashMap.class);
-
-            return ((LinkedHashMap) ((ArrayList) map.get("images")).get(0)).get("image").toString();
-        } catch (Exception e) {
-            return null;
-        }
+    private void getAlbumArt(AlbumInfo albumInfo, String albumId) {
+        CompletableFuture.supplyAsync(() -> {
+            try {
+                String url = COVER_ART + albumId;
+                LinkedHashMap map = restTemplate.getForObject(url, LinkedHashMap.class);
+                albumInfo.setImage(((LinkedHashMap) ((ArrayList) map.get("images")).get(0)).get("image").toString());
+                return albumInfo;
+            } catch (Exception e) {
+                return null;
+            }
+        });
     }
 
     //   http://musicbrainz.org/ws/2/artist/f27ec8db-af05-4f36-916e-3d57f91ecf5e?&fmt=json&inc=url-rels+release-groups
@@ -84,9 +88,11 @@ public class MusicBrainsClient {
     }
 
     @Async
-    private CompletableFuture<List<AlbumInfo>> getAlbumInfo(ArtistInfo artistInfo) {
-        return CompletableFuture.supplyAsync(() -> {
+    private CompletableFuture<List<AlbumInfo>> getAlbumInfo(ArtistInfo artistInfo) throws ExecutionException, InterruptedException {
+
+        CompletableFuture<List<AlbumInfo>> listCompletableFuture = CompletableFuture.supplyAsync(() -> {
             List<AlbumInfo> albumInfos = new ArrayList<>();
+
             List<ReleaseGroup> releases = artistInfo.getReleaseGroups();
             if (releases != null) {
                 releases.forEach(release -> {
@@ -96,7 +102,6 @@ public class MusicBrainsClient {
                         String id = release.getId();
                         info.setId(id);
                         info.setTitle(release.getTitle());
-                        info.setImage(getAlbumArt(id));
                         albumInfos.add(info);
                     }
                 });
@@ -104,6 +109,9 @@ public class MusicBrainsClient {
             return albumInfos;
         });
 
-    }
+        List<AlbumInfo> albumInfos = listCompletableFuture.get();
+        albumInfos.forEach(albumInfo -> getAlbumArt(albumInfo, albumInfo.getId()));
 
+        return CompletableFuture.supplyAsync(() -> albumInfos);
+    }
 }
