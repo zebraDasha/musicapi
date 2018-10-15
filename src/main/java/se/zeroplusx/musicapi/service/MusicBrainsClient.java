@@ -1,5 +1,6 @@
 package se.zeroplusx.musicapi.service;
 
+import enums.Types;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
@@ -39,7 +40,7 @@ public class MusicBrainsClient {
             try {
                 String url = COVER_ART + albumId;
                 LinkedHashMap map = restTemplate.getForObject(url, LinkedHashMap.class);
-                albumInfo.setImage(((LinkedHashMap) ((ArrayList) map.get("images")).get(0)).get("image").toString());
+                albumInfo.setImage(((LinkedHashMap) ((ArrayList) map.get(Types.images.name())).get(0)).get(Types.image.name()).toString());
                 return albumInfo;
             } catch (Exception e) {
                 return null;
@@ -65,7 +66,7 @@ public class MusicBrainsClient {
                 if (relationsCount > 0) {
                     for (Relation relation : relations) {
                         String type = relation.getType();
-                        if ("discogs".equals(type)) {
+                        if (Types.discogs.name().equals(type)) {
                             ResourceObject relationUrl = relation.getUrl();
                             String resourceUrl = relationUrl.getResource();
                             getDescriptionAndName(resourceUrl, artistInfo);
@@ -73,18 +74,21 @@ public class MusicBrainsClient {
                     }
                 }
             }
-            Result result = new Result();
-            result.setAlbums(artistInfo.getAlbums());
-            result.setMbid(artistMbid);
-            if (artistInfo.getArtistData() != null) {
-                result.setDescription(artistInfo.getArtistData().getProfile());
-                result.setName(artistInfo.getArtistData().getRealname());
-            }
-
-            return result;
+            return getResult(artistMbid, artistInfo);
         } catch (Exception e) {
             throw new RuntimeException();
         }
+    }
+
+    private Result getResult(String artistMbid, ArtistInfo artistInfo) {
+        Result result = new Result();
+        result.setAlbums(artistInfo.getAlbums());
+        result.setMbid(artistMbid);
+        if (artistInfo.getArtistData() != null) {
+            result.setDescription(artistInfo.getArtistData().getProfile());
+            result.setName(artistInfo.getArtistData().getRealname());
+        }
+        return result;
     }
 
     @Async
@@ -98,7 +102,7 @@ public class MusicBrainsClient {
                 releases.forEach(release -> {
                     AlbumInfo info = new AlbumInfo();
                     String type = release.getPrimaryType();
-                    if ("Album".equals(type)) {
+                    if (Types.Album.name().equals(type)) {
                         String id = release.getId();
                         info.setId(id);
                         info.setTitle(release.getTitle());

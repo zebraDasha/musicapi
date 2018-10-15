@@ -1,6 +1,5 @@
 package se.zeroplusx.musicapi.dto;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
 @Data

@@ -13,4 +13,5 @@ public class ArtistInfo {
     private String mbid;
     private ArtistData artistData;
     private List<AlbumInfo> albums;
+    private String resourceUrl;
 }
