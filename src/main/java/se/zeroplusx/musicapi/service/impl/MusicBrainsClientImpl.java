@@ -1,6 +1,6 @@
 package se.zeroplusx.musicapi.service.impl;
 
-import enums.Types;
+import se.zeroplusx.musicapi.enums.Types;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
