@@ -1,6 +1,8 @@
 package se.zeroplusx.musicapi.exception;
 
-/** common class for all api exceptions */
+/**
+ * common class for all api exceptions
+ */
 public class RequestToApiException extends RuntimeException {
 
     private String key;
