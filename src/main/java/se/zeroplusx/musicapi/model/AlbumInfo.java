@@ -1,4 +1,4 @@
-package se.zeroplusx.musicapi.entity;
+package se.zeroplusx.musicapi.model;
 
 import lombok.Data;
 

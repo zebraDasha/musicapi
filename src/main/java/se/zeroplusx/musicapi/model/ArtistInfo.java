@@ -1,4 +1,4 @@
-package se.zeroplusx.musicapi.entity;
+package se.zeroplusx.musicapi.model;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
