@@ -34,3 +34,6 @@ buildNumber.properties
 .mvn/timing.properties
 
 .env
+.iml
+.idea/
+musicapi.iml
